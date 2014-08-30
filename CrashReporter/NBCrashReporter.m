@@ -7,9 +7,13 @@
 //
 
 #import "NBCrashReporter.h"
+#import <MessageUI/MFMailComposeViewController.h>
 
 #define kCrashLogDataKey @"CrashLogDataKey"
 #define kCrashLogAlertKey @"kCrashLogAlertKey"
+#define kdefaultAlertMessage @"Send these crash log to help developer to improve the app"
+#define kdefaultAlertTitle @"Crash!!"
+#define kdefaultAlertDisplayTime 1.0f
 
 NS_ENUM(NSInteger, AlertButtonType)
 {
@@ -45,12 +49,17 @@ void addCrashReporter(NSException *exception) {
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
+@interface NBCrashReporter ()
+
+@property (strong , nonatomic) id rootViewController;
+
+@end
 
 @implementation NBCrashReporter
 
 static NBCrashReporter *_instance = nil;
 
-+(NBCrashReporter*)initializeReporter {
++(NBCrashReporter*)initializeWithRootViewController:(id)rootViewController {
     
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -59,7 +68,7 @@ static NBCrashReporter *_instance = nil;
             _instance = [[NBCrashReporter alloc]init];
 
     });
-    
+    _instance.rootViewController = rootViewController;
     return _instance;
 }
 
@@ -68,23 +77,32 @@ static NBCrashReporter *_instance = nil;
     if(self) {
         
         NSSetUncaughtExceptionHandler(&addCrashReporter);
-        //[self checkForCrashLogAlert];
-        
+        [self checkForCrashLogAlert];
+        [self defaultSetup];
       }
     return self;
 }
 
+-(void)defaultSetup {
+    self.alertMessage = kdefaultAlertMessage;
+    self.alertTitle = kdefaultAlertTitle;
+    self.alertDisplayTime = 1.0f;
+  
+}
+
 -(void)checkForCrashLogAlert {
+    
     BOOL showAlert = [[NSUserDefaults standardUserDefaults]boolForKey:kCrashLogAlertKey];
     if(showAlert) {
-        [self performSelector:@selector(showAlertToSendCrashReport) withObject:nil afterDelay:1.0f];
+        [self performSelector:@selector(showAlertToSendCrashReport) withObject:nil afterDelay:self.alertDisplayTime];
     }
 }
 
 
 -(void)showAlertToSendCrashReport {
     
-    UIAlertView * alert = [[UIAlertView alloc]initWithTitle:@"Crash!!" message:@"Send these crash log to help developer to improve the app" delegate:self cancelButtonTitle:@"Send" otherButtonTitles:@"Cancel", nil];
+    
+    UIAlertView * alert = [[UIAlertView alloc]initWithTitle:self.alertTitle message:self.alertMessage delegate:self cancelButtonTitle:@"Cencel" otherButtonTitles:@"Send", nil];
     
     // Show alertview on main queue
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -99,7 +117,7 @@ static NBCrashReporter *_instance = nil;
 
 - (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
     
-    [self clearSavedCrashLog];
+
     switch (buttonIndex) {
             
         case UIAlertViewCancelButton:
@@ -112,6 +130,7 @@ static NBCrashReporter *_instance = nil;
         default:
             break;
     }
+        [self clearSavedCrashLog];
 }
 
 -(void)sendCrashReport {
@@ -119,7 +138,28 @@ static NBCrashReporter *_instance = nil;
     // Need to implement
     NSData *data = [[NSUserDefaults standardUserDefaults]objectForKey:kCrashLogDataKey];
     NSDictionary *crashData = [NSKeyedUnarchiver unarchiveObjectWithData:data];
+    
     NSLog(@"%@",crashData);
+   
+    NSString *filePath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
+    filePath = [filePath stringByAppendingPathComponent:@"crashlog.txt"];
+  
+    [[NSString stringWithFormat:@"%@",crashData] writeToFile:filePath atomically:YES encoding:NSUTF8StringEncoding error:NULL] ;
+   
+    NSURL *fileUrl = [NSURL fileURLWithPath:filePath isDirectory:NO];
+
+    UIActivityViewController *activityViewController = [[UIActivityViewController alloc]initWithActivityItems:@[fileUrl] applicationActivities:nil];
+    [activityViewController setValue:@"Crash log " forKey:@"Subject"];
+    activityViewController.excludedActivityTypes = @[
+                                                     UIActivityTypePostToFacebook,
+                                                     UIActivityTypePostToFlickr,
+                                                     UIActivityTypePostToTencentWeibo,
+                                                     UIActivityTypePostToTwitter,
+                                                     UIActivityTypeMessage,
+                                                     UIActivityTypeAssignToContact
+                                                     ];
+    [self.rootViewController presentViewController:activityViewController animated:YES completion:^{}];
+    
 }
 
 -(void)clearSavedCrashLog {
