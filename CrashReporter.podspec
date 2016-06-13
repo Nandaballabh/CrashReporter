@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   s.name         = 'CrashReporter'
   s.version      = '1.0'
-  s.license = 'MIT'
+  s.license =  { :type => 'MIT', :file => 'LICENSE' }
   s.framework = 'MessageUI'
   s.homepage = 'https://github.com/Nandaballabh/CrashReporter'
   s.summary      = 'This is sample code for enabling the popup after crash in iosapplication to ask user to send logs to development team'
