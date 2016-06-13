@@ -1,6 +1,8 @@
 Pod::Spec.new do |s|
   s.name         = 'CrashReporter'
   s.version      = '1.0'
+  s.platform = :ios
+  s.ios.deployment_target = '7.0'
   s.license =  { :type => 'MIT', :file => 'LICENSE' }
   s.framework = 'MessageUI'
   s.homepage = 'https://github.com/Nandaballabh/CrashReporter'
